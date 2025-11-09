@@ -1,0 +1,44 @@
+# config/mapping.yaml
+# -------------------------------------------------
+# WinWeave Standard Column Names
+# -------------------------------------------------
+standard:
+  player_id: player_id
+  team: team
+  season: season
+  game_id: game_id
+  home_team: home_team
+  away_team: away_team
+  date: date
+  role: role
+  name: name
+
+# Source-specific mappings
+nflverse:
+  roster:
+    player_id: gsis_id
+    team: team          # ← FIXED: was team_abbr
+    season: season
+    role: position_group
+    name: full_name
+  game:
+    game_id: game_id
+    home_team: home_team
+    away_team: away_team
+    date: game_date
+    season: season
+    week: week
+
+pfr:
+  roster:
+    player_id: player_id
+    team: Tm
+    season: Year
+    role: Pos
+    name: Player
+  game:
+    game_id: game_id
+    home_team: Home
+    away_team: Away
+    date: Date
+    season: Year
