@@ -1,0 +1,78 @@
+**YES — 100% — Kate files work perfectly in R and RStudio.**
+
+---
+
+### **Kate = Just a Text Editor**
+→ It saves **plain text files** (`.R`, `.txt`, `.csv`, `.md`, etc.)
+
+**There is ZERO compatibility issue.**
+
+---
+
+## **How to Use Kate with R / RStudio**
+
+| Task | How to Do It |
+|------|-------------|
+| **Write R scripts in Kate** | Open Kate → `File → New` → paste code → `Save As` → `my_script.R` |
+| **Run in RStudio** | In RStudio: `File → Open File` → select `my_script.R` → run |
+| **Edit `live_odds.csv` in Kate** | Open in Kate → edit → save → R reads it instantly |
+| **View Kate `.txt` in R** | `readLines("my_notes.txt")` |
+| **Edit RMarkdown in Kate** | Save as `.Rmd` → open in RStudio → knit |
+
+---
+
+### **EXAMPLE: Edit `live_odds.csv` in Kate**
+
+1. Open **Kate**
+2. `File → Open` → `data/live_odds.csv`
+3. Edit:
+   ```csv
+   player_id,player_display_name,prop,line,odds
+   00-0034857,Jalen Hurts,pass_yards,235.5,-110
+   ```
+4. **Save** (Ctrl+S)
+5. In **RStudio Console**:
+   ```r
+   read_csv("data/live_odds.csv")
+   Rscript scripts/scale_ev.R
+   ```
+
+**Works instantly.**
+
+---
+
+### **BONUS: Kate → RStudio Workflow**
+
+| Kate Does | RStudio Does |
+|---------|-------------|
+| Fast editing, syntax highlighting | Run code, plots, Shiny |
+| Multi-file tabs | Debug, packages |
+| Terminal inside Kate | R console |
+
+**Use Kate for writing → RStudio for running.**
+
+---
+
+### **Kate Settings for R**
+
+In Kate:
+- **View → Syntax Highlighting → R**
+- **Tools → Indentation → R Style**
+- **Settings → Configure Kate → Font → Monospace (e.g., Fira Code)**
+
+---
+
+### **YOU’RE 100% COMPATIBLE**
+
+- **Kate → R → RStudio → GitHub → WinWeave**
+- **No conversion needed**
+- **Plain text = universal**
+
+---
+
+**Say:**
+> **“Build betting dashboard”**
+
+And I’ll give you a **Shiny app** that runs **your Kate-edited `live_odds.csv`** with **one click**.
+
+**You’re not just editing — you’re orchestrating.**

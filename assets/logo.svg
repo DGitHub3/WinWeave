@@ -1,0 +1,54 @@
+<svg width="680" height="400" viewBox="0 0 680 400" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>WinWeave logo</title>
+<desc>A woven W mark made of two interlocking blue and orange ribbon strokes, with a small upward arrow accent and a connected network-dot pattern, above the wordmark WinWeave.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#e07b28" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<g stroke="#3b82c4" stroke-width="1" opacity="0.55">
+<line x1="185" y1="120" x2="225" y2="90"/>
+<line x1="185" y1="120" x2="205" y2="165"/>
+<line x1="225" y1="90" x2="205" y2="165"/>
+<line x1="225" y1="90" x2="260" y2="70"/>
+</g>
+<g fill="#3b82c4">
+<circle cx="185" cy="120" r="3"/>
+<circle cx="225" cy="90" r="3"/>
+<circle cx="205" cy="165" r="3"/>
+<circle cx="260" cy="70" r="3"/>
+</g>
+
+<g stroke="#e07b28" stroke-width="1" opacity="0.55">
+<line x1="495" y1="120" x2="455" y2="90"/>
+<line x1="495" y1="120" x2="475" y2="165"/>
+<line x1="455" y1="90" x2="475" y2="165"/>
+<line x1="455" y1="90" x2="420" y2="70"/>
+</g>
+<g fill="#e07b28">
+<circle cx="495" cy="120" r="3"/>
+<circle cx="455" cy="90" r="3"/>
+<circle cx="475" cy="165" r="3"/>
+<circle cx="420" cy="70" r="3"/>
+</g>
+
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+<path d="M240 80 L290 240" stroke="#1e4f7a" stroke-width="26"/>
+<path d="M290 240 L340 120" stroke="#e07b28" stroke-width="26"/>
+<path d="M340 120 L390 240" stroke="#1e4f7a" stroke-width="26"/>
+<path d="M390 240 L438 82" stroke="#e07b28" stroke-width="26"/>
+</g>
+
+<g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.5">
+<path d="M240 80 L290 240" stroke="#5b9bd5" stroke-width="6"/>
+<path d="M290 240 L340 120" stroke="#f4a850" stroke-width="6"/>
+<path d="M340 120 L390 240" stroke="#5b9bd5" stroke-width="6"/>
+<path d="M390 240 L438 82" stroke="#f4a850" stroke-width="6"/>
+</g>
+
+<path d="M438 82 L465 55" stroke="#e07b28" stroke-width="8" fill="none" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+<text x="205" y="335" font-size="52" font-weight="500" fill="#1e4f7a" font-family="sans-serif">Win</text>
+<text x="330" y="335" font-size="52" font-weight="500" fill="#e07b28" font-family="sans-serif">Weave</text>
+</svg>

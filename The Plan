@@ -1,0 +1,96 @@
+
+Plan
+
+---
+
+### **1. Scraping: The Fragile Core**
+
+| Risk | Reality | Mitigation |
+|------|--------|-----------|
+| **Site changes** | DraftKings redesigns → CSS selectors break | **One script per book** (you already have) + **weekly smoke test** |
+| **Anti-bot** | Cloudflare blocks IP after 50 requests | **2s delay**, **random user-agent**, **proxy rotation** (later) |
+| **Login walls** | Some books require login for full props | **Manual CSV input** as fallback (your current `live_odds.csv`) |
+| **Rate limits** | FanDuel bans after 100 req/hour | **Run 1x/day max**, **stagger books** |
+
+**Plan**:
+- **Week 1–2**: Manual `live_odds.csv` (you control)
+- **Week 3**: Add **1 scraper** (DraftKings) → test stability
+- **Fail fast**: If scraper dies, fall back to manual
+
+---
+
+### **2. Account Management: **
+
+
+| Constraint | Impact | Workaround |
+|-----------|--------|-----------|
+| **KYC / Deposit limits** | $50/book = $750 for 15 books | **Start with 3–5** (DK, FD, MGM, Caesars, Rivers) |
+| **Bonus hunting** | Free $200 bets → but rollover | **Use bonuses for +EV bets only** |
+| **Withdrawal delays** | 3–7 days | **Keep $100/book buffer** |
+| **Geo-restrictions** | Must be in legal state | **Use home IP** or **VPN only if TOS allows** |
+
+**Plan**:
+- **Phase 1**: 3 books, $150 total, $50 each
+- **Phase 2**: Add 2 more when profitable
+- **Never chase**: If one book limits you, drop it
+
+---
+
+### **3. EV Scanner: Math vs. Reality**
+
+| Assumption | Risk | Fix |
+|-----------|------|-----|
+| **Poisson = truth** | Overestimates low-sample players | **Min 8 games** (you have) |
+| **Lines are sharp** | Books adjust fast | **Run at 9AM** — before public money moves lines |
+| **No juice modeling** | -110 vs -115 matters | **Add vig adjustment later** |
+
+**Plan**:
+- **Week 1**: Manual lines → test EV
+- **Log every bet**: `bets_log.csv` → track ROI
+- **Review weekly**: Kill underperforming props
+
+---
+
+### **4. Data Pipeline: The Silent Killer**
+
+| Failure | Symptom | Fix |
+|--------|--------|-----|
+| `winweave.db` corruption | Queries return 0 rows | **Weekly backup**: `cp winweave.db winweave_backup_$(date +%F).db` |
+| `props` table drift | `player_id` mismatches | **Rebuild monthly** via `download_and_build.R` |
+| CSV overwrite | Lose manual edits | **Never overwrite** — append + dedupe |
+
+---
+
+### **5. Your Time:**
+
+You said **1–2x/week**. That’s **smart**.
+
+| Task | Time | Frequency |
+|------|------|-----------|
+| Update `live_odds.csv` | 10 min | 1–2x/week |
+| Run `scale_ev.R` | 10 sec | After odds |
+| Place bets | 15 min | Only +EV |
+| **Total** | **< 30 min/week** | **Sustainable** |
+
+---
+
+### **FAILURE-PROOF ROADMAP (Next 4 Weeks)**
+
+| Week | Goal | Deliverable |
+|------|------|-----------|
+| **1** | Manual odds → +EV | `live_odds.csv` + `ev_alerts.csv` |
+| **2** | 1 scraper (DraftKings) | `scrape_draftkings.R` |
+| **3** | Master runner | `run_scrapers.R` |
+| **4** | Dashboard | Shiny app (one-click) |
+
+---
+
+### **EDGE**
+
+- **You control the data**
+- **You control the pace**
+- **You control the risk**
+
+No rush. No hype. Just **execution**.
+
+---

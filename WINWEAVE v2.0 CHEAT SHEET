@@ -1,0 +1,422 @@
+**WINWEAVE v2.0 — FINAL CHEAT SHEET (WITH ALL VALUE SETS)**
+
+:: DASHBOARD bash COMMAND ::
+
+cd ~/WinWeave
+source .venv/bin/activate
+streamlit run dashboard.py
+
+:: ::
+
+Daily workflow, in order:
+bash
+cd ~/WinWeave && source .venv/bin/activate
+
+# 1. Pull fresh odds (do this each morning, or right before betting)
+python scrapers/sgo_scraper.py --league mlb
+#    --books fanduel          # optional: scan only books you have access to
+
+# 2. See the full ranked list in the terminal (optional — dashboard covers this now)
+python scan_live_mlb_props.py --date YYYY-MM-DD
+
+# 3. Open the dashboard (this is the main daily tool now)
+streamlit run dashboard.py
+
+---
+
+# **WINWEAVE v2.0 CHEAT SHEET**  
+*NFL Data Empire — 15 Tables, 1M+ Rows, 40 Years*
+
+---
+
+## **STEP 0: CONNECT TO DB (RUN FIRST)**
+
+```r
+library(DBI)
+con <- dbConnect(RSQLite::SQLite(), "data/winweave.db")
+```
+
+---
+
+## **VALUE SETS (ALL POSSIBLE VALUES)**
+
+| Table | Column | Command to List All |
+|------|--------|---------------------|
+| `props` | `player_display_name` | `dbGetQuery(con, "SELECT DISTINCT player_display_name FROM props ORDER BY player_display_name")` |
+| `props` | `opponent_team` | `dbGetQuery(con, "SELECT DISTINCT opponent_team FROM props ORDER BY opponent_team")` |
+| `props` | `position` | `dbGetQuery(con, "SELECT DISTINCT position FROM props ORDER BY position")` |
+| `snap_counts` | `player` | `dbGetQuery(con, "SELECT DISTINCT player FROM snap_counts ORDER BY player")` |
+| `snap_counts` | `team` | `dbGetQuery(con, "SELECT DISTINCT team FROM snap_counts ORDER BY team")` |
+| `depth_charts` | `player_display_name` | `dbGetQuery(con, "SELECT DISTINCT player_display_name FROM depth_charts ORDER BY player_display_name")` |
+| `next_gen_stats` | `player_display_name` | `dbGetQuery(con, "SELECT DISTINCT player_display_name FROM next_gen_stats ORDER BY player_display_name")` |
+| `injuries` | `full_name` | `dbGetQuery(con, "SELECT DISTINCT full_name FROM injuries ORDER BY full_name")` |
+| `contracts` | `player` | `dbGetQuery(con, "SELECT DISTINCT player FROM contracts ORDER BY player")` |
+
+---
+
+## **1. PLAYER SEARCH**
+
+```r
+# [PLAYER_NAME] ID
+dbGetQuery(con, "
+  SELECT player_id FROM props 
+  WHERE player_display_name = '[PLAYER_NAME]' LIMIT 1
+")$player_id
+```
+
+**Example**:
+```r
+# Jalen Hurts ID
+dbGetQuery(con, "
+  SELECT player_id FROM props 
+  WHERE player_display_name = 'Jalen Hurts' LIMIT 1
+")$player_id
+# → 00-0036389
+```
+
+---
+
+## **2. 2025 STATS**
+
+```r
+# [PLAYER_NAME] 2025 stats
+dbGetQuery(con, "
+  SELECT week, passing_yards, rushing_yards, passing_epa
+  FROM props
+  WHERE player_display_name = '[PLAYER_NAME]' AND season = 2025
+  ORDER BY week DESC
+")
+```
+
+**Example**:
+```r
+# Jalen Hurts 2025 passing
+dbGetQuery(con, "
+  SELECT week, passing_yards, rushing_yards, passing_epa
+  FROM props
+  WHERE player_display_name = 'Jalen Hurts' AND season = 2025
+  ORDER BY week DESC
+")
+```
+
+---
+
+## **3. vs. OPPONENT**
+
+```r
+# [PLAYER_NAME] vs. [TEAM] (last 5)
+dbGetQuery(con, "
+  SELECT season, week, passing_yards, rushing_yards
+  FROM props
+  WHERE player_display_name = '[PLAYER_NAME]' AND opponent_team = '[TEAM]'
+  ORDER BY season DESC, week DESC
+  LIMIT 5
+")
+```
+
+**Example**:
+```r
+# Hurts vs. DAL (last 5)
+dbGetQuery(con, "
+  SELECT season, week, passing_yards, rushing_yards
+  FROM props
+  WHERE player_display_name = 'Jalen Hurts' AND opponent_team = 'DAL'
+  ORDER BY season DESC, week DESC
+  LIMIT 5
+")
+```
+
+---
+
+## **4. PBP (PLAY-BY-PLAY)**
+
+```r
+# [PLAYER_NAME] last 10 passes
+dbGetQuery(con, "
+  SELECT play_id, play_type, yards_gained, epa
+  FROM pbp
+  WHERE passer_player_id = '[PLAYER_ID]'
+  ORDER BY play_id DESC
+  LIMIT 10
+")
+```
+
+**Example**:
+```r
+# Hurts last 10 passes
+dbGetQuery(con, "
+  SELECT play_id, play_type, yards_gained, epa
+  FROM pbp
+  WHERE passer_player_id = '00-0036389'
+  ORDER BY play_id DESC
+  LIMIT 10
+")
+```
+
+---
+
+## **5. INJURIES**
+
+```r
+# [PLAYER_NAME] latest injury
+dbGetQuery(con, "
+  SELECT week, practice_status
+  FROM injuries
+  WHERE full_name = '[PLAYER_NAME]'
+  ORDER BY week DESC
+  LIMIT 1
+")
+```
+
+**Example**:
+```r
+# Hurts latest injury
+dbGetQuery(con, "
+  SELECT week, practice_status
+  FROM injuries
+  WHERE full_name = 'Jalen Hurts'
+  ORDER BY week DESC
+  LIMIT 1
+")
+```
+
+---
+
+## **6. SNAP %**
+
+```r
+# [PLAYER_NAME] last 3 games
+dbGetQuery(con, "
+  SELECT week, offense_pct
+  FROM snap_counts
+  WHERE player = '[PLAYER_NAME]'
+  ORDER BY week DESC
+  LIMIT 3
+")
+```
+
+**Example**:
+```r
+# Hurts last 3 games
+dbGetQuery(con, "
+  SELECT week, offense_pct
+  FROM snap_counts
+  WHERE player = 'Jalen Hurts'
+  ORDER BY week DESC
+  LIMIT 3
+")
+```
+
+---
+
+## **7. NEXT-GEN (AIR YARDS, SEPARATION)**
+
+```r
+# [PLAYER_NAME] last 3 weeks
+dbGetQuery(con, "
+  SELECT week, avg_separation, avg_air_yards
+  FROM next_gen_stats
+  WHERE player_display_name = '[PLAYER_NAME]'
+  ORDER BY week DESC
+  LIMIT 3
+")
+```
+
+**Example**:
+```r
+# A.J. Brown separation
+dbGetQuery(con, "
+  SELECT week, avg_separation, avg_air_yards
+  FROM next_gen_stats
+  WHERE player_display_name = 'A.J. Brown'
+  ORDER BY week DESC
+  LIMIT 3
+")
+```
+
+---
+
+## **8. DEPTH CHART**
+
+```r
+# [TEAM] [POSITION] depth
+dbGetQuery(con, "
+  SELECT depth_chart_position, player_display_name
+  FROM depth_charts
+  WHERE team = '[TEAM]' AND position = '[POSITION]'
+")
+```
+
+**Example**:
+```r
+# PHI WR depth
+dbGetQuery(con, "
+  SELECT depth_chart_position, player_display_name
+  FROM depth_charts
+  WHERE team = 'PHI' AND position = 'WR'
+")
+```
+
+---
+
+## **9. CONTRACT**
+
+```r
+# [PLAYER_NAME] contract
+dbGetQuery(con, "
+  SELECT year_signed, value, player
+  FROM contracts
+  WHERE player = '[PLAYER_NAME]'
+")
+```
+
+**Example**:
+```r
+# Hurts contract
+dbGetQuery(con, "
+  SELECT year_signed, value, player
+  FROM contracts
+  WHERE player = 'Jalen Hurts'
+")
+```
+
+---
+
+## **10. REF CREW**
+
+```r
+# Refs with most penalties
+dbGetQuery(con, "
+  SELECT referee, COUNT(*) AS penalties
+  FROM officials
+  GROUP BY referee
+  ORDER BY penalties DESC
+  LIMIT 5
+")
+```
+
+**Example**:
+```r
+# Top 5 penalty refs
+dbGetQuery(con, "
+  SELECT referee, COUNT(*) AS penalties
+  FROM officials
+  GROUP BY referee
+  ORDER BY penalties DESC
+  LIMIT 5
+")
+```
+
+---
+
+## **11. +EV SCANNER**
+
+```bash
+Rscript scripts/scale_ev.R
+```
+
+**Example**:
+```bash
+Rscript scripts/scale_ev.R
+# → data/ev_alerts.csv
+```
+
+---
+
+## **12. DASHBOARD**
+
+```bash
+cd ~/WinWeave/dashboard
+R -e "shiny::runApp()"
+```
+
+**Example**:
+```bash
+cd ~/WinWeave/dashboard
+R -e "shiny::runApp()"
+# → http://127.0.0.1:4321
+```
+
+---
+
+## **13. REFRESH DATA (WEEKLY)**
+
+```bash
+Rscript scripts/add_advanced_data.R
+```
+
+**Example**:
+```bash
+Rscript scripts/add_advanced_data.R
+# → 10 tables updated
+```
+
+---
+
+## **14. LOG BET**
+
+```r
+write_csv(
+  data.frame(Date = Sys.Date(), Player = "[PLAYER]", Prop = "[PROP]", Amount = -[AMOUNT]),
+  "data/bet_log.csv", append = TRUE
+)
+```
+
+**Example**:
+```r
+write_csv(
+  data.frame(Date = Sys.Date(), Player = "Hurts", Prop = "o235.5", Amount = -100),
+  "data/bet_log.csv", append = TRUE
+)
+```
+
+---
+
+## **15. BANKROLL**
+
+```r
+read_excel("data/sports_accounts.xlsx", sheet = "Summary")
+```
+
+**Example**:
+```r
+read_excel("data/sports_accounts.xlsx", sheet = "Summary")
+```
+
+---
+
+## **ALL VALUE SETS — COPY-PASTE THESE**
+
+```r
+# 1. All Players (props)
+dbGetQuery(con, "SELECT DISTINCT player_display_name FROM props ORDER BY player_display_name")
+
+# 2. All Teams
+dbGetQuery(con, "SELECT DISTINCT opponent_team FROM props ORDER BY opponent_team")
+
+# 3. All Positions
+dbGetQuery(con, "SELECT DISTINCT position FROM props ORDER BY position")
+
+# 4. All Players (snap_counts)
+dbGetQuery(con, "SELECT DISTINCT player FROM snap_counts ORDER BY player")
+
+# 5. All Players (next_gen_stats)
+dbGetQuery(con, "SELECT DISTINCT player_display_name FROM next_gen_stats ORDER BY player_display_name")
+
+# 6. All Players (injuries)
+dbGetQuery(con, "SELECT DISTINCT full_name FROM injuries ORDER BY full_name")
+
+# 7. All Players (contracts)
+dbGetQuery(con, "SELECT DISTINCT player FROM contracts ORDER BY player")
+```
+
+---
+
+| Command | Power |
+|--------|-------|
+| `snap_counts` | Workload |
+| `next_gen_stats` | Separation |
+| `injuries` | Fade risk |
+| `pbp` | EPA per play |
+
+---

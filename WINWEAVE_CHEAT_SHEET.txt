@@ -1,0 +1,128 @@
+==================================================================
+                       WINWEAVE CHEAT SHEET
+       Run in RStudio Console → NFL Data Engine
+==================================================================
+
+# 1. LOAD THE DB (RUN ONCE)
+library(DBI)
+con <- dbConnect(RSQLite::SQLite(), "data/winweave.db")
+
+# 2. CLOSE DB (RUN WHEN DONE)
+dbDisconnect(con)
+
+==================================================================
+                     PLAYER SEARCH TEMPLATES
+==================================================================
+
+# Get player_id (ALWAYS DO THIS FIRST)
+player_id <- dbGetQuery(con, "
+  SELECT player_id 
+  FROM props 
+  WHERE player_display_name = 'Jalen Hurts' 
+  LIMIT 1
+")$player_id
+
+# Last 5 games vs. any opponent
+dbGetQuery(con, paste0("
+  SELECT season, week, opponent_team,
+         passing_yards, rushing_yards, passing_tds
+  FROM props
+  WHERE player_id = '", player_id, "'
+  ORDER BY season DESC, week DESC
+  LIMIT 5
+"))
+
+# Last 5 vs. SPECIFIC OPPONENT (e.g., DAL)
+dbGetQuery(con, paste0("
+  SELECT season, week, passing_yards, rushing_yards
+  FROM props
+  WHERE player_id = '", player_id, "'
+    AND opponent_team = 'DAL'
+  ORDER BY season DESC, week DESC
+  LIMIT 5
+"))
+
+# AVERAGE vs. OPPONENT (Last 5)
+dbGetQuery(con, paste0("
+  WITH last_5 AS (
+    SELECT passing_yards, rushing_yards
+    FROM props
+    WHERE player_id = '", player_id, "' AND opponent_team = 'DAL'
+    ORDER BY season DESC, week DESC
+    LIMIT 5
+  )
+  SELECT 
+    COUNT(*) AS games,
+    ROUND(AVG(passing_yards), 1) AS pass_avg,
+    ROUND(AVG(rushing_yards), 1) AS rush_avg,
+    ROUND(AVG(passing_yards + rushing_yards), 1) AS total_avg
+  FROM last_5
+"))
+
+# 2025 SEASON AVERAGE
+dbGetQuery(con, paste0("
+  SELECT 
+    COUNT(*) AS games,
+    ROUND(AVG(passing_yards), 1) AS pass_avg,
+    ROUND(AVG(rushing_yards), 1) AS rush_avg
+  FROM props
+  WHERE player_id = '", player_id, "' AND season = 2025
+"))
+
+==================================================================
+                     TEAM & GAME TEMPLATES
+==================================================================
+
+# Team schedule (e.g., TB 2025)
+dbGetQuery(con, "
+  SELECT game_id, gameday, 
+         CASE WHEN home_team = 'TB' THEN away_team ELSE home_team END AS opponent
+  FROM games
+  WHERE home_team = 'TB' OR away_team = 'TB'
+    AND season = 2025
+  ORDER BY gameday
+")
+
+# Games today (November 9, 2025)
+dbGetQuery(con, "
+  SELECT game_id, gameday, home_team, away_team
+  FROM games
+  WHERE gameday = '2025-11-09'
+")
+
+==================================================================
+                     EV & ODDS TEMPLATES
+==================================================================
+
+# Run EV scanner (after updating live_odds.csv)
+system("Rscript scripts/scale_ev.R")
+
+# View +EV bets
+read_csv("data/ev_alerts.csv")
+
+# Update live_odds.csv (manual example)
+write_csv(tibble(
+  player_id = c('00-0034857'),
+  player_display_name = c('Jalen Hurts'),
+  prop = c('pass_yards'),
+  line = c(235.5),
+  odds = c(-110)
+), "data/live_odds.csv")
+
+==================================================================
+                     QUICK COMMANDS
+==================================================================
+
+# List all players
+dbGetQuery(con, "SELECT DISTINCT player_display_name FROM props LIMIT 10")
+
+# List all teams
+dbGetQuery(con, "SELECT DISTINCT team FROM rosters")
+
+# Check DB size
+file.info("data/winweave.db")$size / 1e6  # MB
+
+# Rebuild DB (if needed)
+system("Rscript scripts/download_and_build.R")
+
+==================================================================

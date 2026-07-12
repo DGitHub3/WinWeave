@@ -1,3 +1,40 @@
-data/*.csv
-outputs/*
-.Rproj.user
+# ── SECRETS — never commit, repo is PUBLIC ─────────────────────
+keys.txt
+API KEYS
+*.key
+.env
+
+# ── PERSONAL / FINANCIAL — bet ledgers and balances stay private ──
+Book Balances*
+*Book_Balances*
+backfill_bets_*.py
+
+# ── DATA — rebuilt locally, too large / personal for the repo ──
+data/
+*.db
+*.csv
+*.xlsx
+.RData
+.Rhistory
+*.Rhistory
+
+# ── LOGS & TEST OUTPUT ─────────────────────────────────────────
+*Test*.txt
+Verification-Sequence.txt
+Game-Level-Markets-Test
+First Scrape Test.txt
+validate_data_test.txt
+
+# ── PYTHON ─────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ── EDITOR / OS ────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+.directory
+.Rproj.user/
