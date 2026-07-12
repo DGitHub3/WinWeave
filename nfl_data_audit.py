@@ -33,7 +33,7 @@ STAT_POSITIONS = {
     "attempts":        ("QB",),
     "completions":     ("QB",),
     "passing_tds":     ("QB",),
-    "interceptions":   ("QB",),
+    "passing_interceptions": ("QB",),
     "rushing_yards":   ("QB", "RB"),
     "carries":         ("RB",),
     "receiving_yards": ("WR", "TE", "RB"),

@@ -172,7 +172,9 @@ def poisson_probability(mean: float, line: float,
 
 def choose_model(stat: str) -> str:
     poisson_stats = {"passing_tds","rushing_tds","receiving_tds",
-                     "receptions","targets","sacks","interceptions"}
+                     "receptions","targets","sacks",
+                     "passing_interceptions"}  # audit 2026-07-12: props
+                     # has no 'interceptions' column; this is the name
     return "poisson" if stat in poisson_stats else "normal"
 
 
@@ -338,7 +340,7 @@ LEAGUE_AVERAGES = {
     "rushing_tds":       0.4,
     "receiving_tds":     0.3,
     "targets":           6.5,
-    "interceptions":     0.8,
+    "passing_interceptions": 0.8,
     "sacks":             2.2,
     "carries":          14.0,
     "completions":      21.0,

@@ -64,7 +64,7 @@ NFL_STAT_MAP = {s: s for s in NFL_STATS}  # SGO names already match ours
 # defense — neither maps to a single-player over/under stat we model,
 # so they stay unmapped on purpose.)
 NFL_STAT_MAP["passing_touchdowns"]    = "passing_tds"
-NFL_STAT_MAP["passing_interceptions"] = "interceptions"
+NFL_STAT_MAP["passing_interceptions"] = "passing_interceptions"  # audit-confirmed column name
 
 # CONFIRMED from a real diagnostic pull (2026-07-03) — SGO's actual
 # MLB stat IDs use a "batting_"/"pitching_" prefix with camelCase,
