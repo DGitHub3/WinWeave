@@ -39,3 +39,4 @@ venv/
 .directory
 .Rproj.user/
 private/
+archive/logs/
