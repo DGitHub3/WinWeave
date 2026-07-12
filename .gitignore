@@ -38,3 +38,4 @@ venv/
 .DS_Store
 .directory
 .Rproj.user/
+private/
