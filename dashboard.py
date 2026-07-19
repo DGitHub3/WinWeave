@@ -50,6 +50,7 @@ from src.factors.prop_tracker import (
     get_all_player_track_records,
     get_bankroll_summary,
     get_bankroll_by_book,
+    add_bank_transaction,
     set_starting_balance,
     get_prediction,
     edit_prediction,
@@ -378,6 +379,50 @@ def render_top_picks(sport_label: str, scan_fn, key_prefix: str):
                         letter-spacing:0.04em;">EV%</div>
         </div>
         """, unsafe_allow_html=True)
+        tracked_keys = get_tracked_pick_keys()
+        n_untracked = sum(1 for r in top_picks
+                          if _pick_key(r) not in tracked_keys)
+        bc1, bc2 = st.columns([1.4, 2.6])
+        with bc1:
+            if n_untracked and st.button(
+                    f"📋 Paper-track all {n_untracked} untracked",
+                    key=f"{key_prefix}_bulk_track"):
+                added = 0
+                for r in top_picks:
+                    if _pick_key(r) in tracked_keys:
+                        continue
+                    if hasattr(r, "tracker_encoding"):
+                        enc = r.tracker_encoding()
+                    else:
+                        enc = {"player_name": r.player_name,
+                               "stat": r.stat, "line": r.line,
+                               "side": r.side,
+                               "opponent": getattr(r, "opponent", "") or "",
+                               "game_date": local_date(
+                                   getattr(r, "starts_at", None) or ""
+                               ) or None}
+                    save_prediction(
+                        **enc, book=r.book,
+                        american_odds=r.american_odds,
+                        season=datetime.now().year,
+                        week=getattr(r, "week", 0) or 0,
+                        predicted_prob=r.true_probability,
+                        ev_percent=r.ev_percent,
+                        kelly_fraction=getattr(r, "kelly_fraction", 0.0),
+                        grade=r.grade(), bet_placed=False, stake=None)
+                    added += 1
+                get_tracked_pick_keys.clear()
+                st.success(f"Paper-tracked {added} pick(s) — they'll "
+                          "auto-resolve after the games.")
+                st.rerun()
+        with bc2:
+            if n_untracked == 0:
+                st.caption("✓ Everything shown is already tracked.")
+            else:
+                st.caption("One click logs every shown pick as a $0 "
+                          "paper prediction (dupes skipped) — your "
+                          "top-10-per-load routine, automated.")
+
         for i, r in enumerate(top_picks, 1):
             n_books = book_counts[(r.player_name, r.stat, r.line, r.side)]
             book_note = f"{r.book}" + (f" (best of {n_books} books)"
@@ -404,6 +449,8 @@ def render_top_picks(sport_label: str, scan_fn, key_prefix: str):
                 stat_label=r.stat.replace("_", " "),
                 result_obj=r,
                 card_key=f"{key_prefix}_{i}_{r.player_name}_{r.stat}",
+                already_tracked=_pick_key(r) in tracked_keys,
+                headshot_url=get_headshot_url(r.player_name),
             )
 
     with st.expander("Diagnostics (unmatched players/teams, skipped markets)"):
@@ -524,12 +571,59 @@ def _grade_class(grade_str: str) -> str:
     return f"grade-{letter}" if letter in "abcf" else "grade-c"
 
 
+def _pick_key(r) -> tuple:
+    """Identity of a pick as the TRACKER stores it (game markets use
+    their margin-based encoding), so checkmarks and dedupe agree with
+    what save_prediction actually writes."""
+    if hasattr(r, "tracker_encoding"):
+        e = r.tracker_encoding()
+        return (e["player_name"], e["stat"], round(float(e["line"]), 2),
+                e["side"])
+    return (r.player_name, r.stat, round(float(r.line), 2), r.side)
+
+
+@st.cache_data(ttl=120)
+def get_tracked_pick_keys() -> set:
+    """Keys of every still-pending tracked prediction — used for the
+    green checkmark on cards and to skip dupes in bulk tracking."""
+    df = query_df("""
+        SELECT player_name, stat, line, side FROM prop_results
+        WHERE result IS NULL
+    """)
+    return {(r.player_name, r.stat, round(float(r.line), 2), r.side)
+            for r in df.itertuples()}
+
+
+@st.cache_data(ttl=3600)
+def get_headshot_url(player_name: str):
+    """Player headshot, zero-config: NFL from the headshot_url column
+    nflverse already ships inside props; MLB from the public MLB
+    static CDN keyed by mlb_players.player_id. Teams/parlays: None."""
+    df = query_df("""
+        SELECT headshot_url FROM props
+        WHERE player_display_name = ? AND headshot_url IS NOT NULL
+        ORDER BY season DESC LIMIT 1
+    """, (player_name,))
+    if not df.empty and df.iloc[0, 0]:
+        return str(df.iloc[0, 0])
+    df = query_df(
+        "SELECT player_id FROM mlb_players WHERE full_name = ? LIMIT 1",
+        (player_name,))
+    if not df.empty and df.iloc[0, 0]:
+        pid = int(df.iloc[0, 0])
+        return ("https://img.mlbstatic.com/mlb-photos/image/upload/"
+                "w_120,q_100/v1/people/%d/headshot/67/current" % pid)
+    return None
+
+
 def render_pick_card(rank: int, player: str, detail: str, matchup: str,
                      ev_percent: float, grade_str: str,
                      deeplink: str = None, mean_stat: float = None,
                      std_stat: float = None, sample_size: int = None,
                      stat_label: str = "", result_obj=None,
-                     card_key: str = ""):
+                     card_key: str = "",
+                     already_tracked: bool = False,
+                     headshot_url: str = None):
     """Renders one Top Pick as an odds-board-style card: colored edge
     bar by grade, big glowing mono EV%, optional direct bet link.
     A popover above the card lets you sanity-check the player without
@@ -568,6 +662,10 @@ def render_pick_card(rank: int, player: str, detail: str, matchup: str,
 
         if result_obj is not None:
             st.divider()
+            if already_tracked:
+                st.success("✓ Already in the tracker (pending result) — "
+                          "saving again is dedupe-protected, but you "
+                          "don't need to.")
             st.caption("Track this pick")
             is_real = st.checkbox("This is a real bet", key=f"real_{card_key}")
             stake_val = None
@@ -626,10 +724,24 @@ def render_pick_card(rank: int, player: str, detail: str, matchup: str,
     # noticing the bug only ever hit cards that HAD a deeplink (meaning
     # bet_note="" was the trigger), then confirming it by running the
     # exact template through markdown's HTML-block logic directly.
+    head_html = ""
+    if headshot_url:
+        head_html = ('<img src="' + headshot_url + '" style="width:34px;'
+                     'height:34px;border-radius:50%;object-fit:cover;'
+                     'vertical-align:middle;margin-right:8px;'
+                     'border:1px solid #2A313C;"/>')
+    tracked_html = ""
+    if already_tracked:
+        tracked_html = ('<span style="font-size:11px;color:#3ECF8E;'
+                        'border:1px solid rgba(62,207,142,0.4);'
+                        'border-radius:10px;padding:1px 8px;'
+                        'margin-left:8px;vertical-align:middle;">'
+                        '&#10003; tracked</span>')
     card_html = (
         f'<div class="pick-card {gclass}">'
         f'<div class="pick-rank wv-mono">#{rank}</div>'
         f'<div class="pick-main">'
+        f'<div class="pick-player">{head_html}{player}{tracked_html}</div>'
         f'<div class="pick-detail wv-mono">{detail}</div>'
         f'<div class="pick-matchup">{matchup}</div>'
         f'{bet_note}'
@@ -1321,8 +1433,32 @@ with tab_tracker:
                 st.rerun()
         st.caption("Set this once per book to whatever your balance was "
                   "right before you started tracking bets here — current "
-                  "balance is then starting + net profit from every "
-                  "logged real bet, automatically.")
+                  "balance is then starting + deposits + net profit from "
+                  "every logged real bet, automatically.")
+
+    with st.expander("Add a deposit or withdrawal"):
+        dc1, dc2, dc3, dc4 = st.columns([1.4, 1, 1, 1])
+        with dc1:
+            tx_book = st.selectbox(
+                "Book ", ["fanduel", "draftkings", "betmgm", "caesars"],
+                key="tx_book_select")
+        with dc2:
+            tx_kind = st.radio("Type", ["deposit", "withdrawal"],
+                               key="tx_kind", horizontal=True)
+        with dc3:
+            tx_amount = st.number_input("Amount ($)", min_value=0.0,
+                                        value=10.0, step=5.0,
+                                        key="tx_amount")
+        with dc4:
+            st.write(""); st.write("")
+            if st.button("Add", key="tx_save") and tx_amount > 0:
+                add_bank_transaction(tx_book, float(tx_amount), tx_kind)
+                st.success(f"{tx_kind.capitalize()} of ${tx_amount:.2f} "
+                          f"recorded for {tx_book}.")
+                st.rerun()
+        st.caption("Re-ups and cash-outs both live here, so the budget "
+                  "math stays honest: current balance = starting + net "
+                  "deposits + net profit − pending real stakes.")
 
     if not per_book:
         st.info("No bankroll data yet. Set a starting balance above, or "
@@ -1332,42 +1468,64 @@ with tab_tracker:
         for b in per_book:
             with st.container(border=True):
                 st.markdown(f"**{b['book'].capitalize()}**")
-                c1, c2, c3, c4, c5 = st.columns(5)
+                c1, c2, c3, c4, c5, c6 = st.columns(6)
                 c1.metric("Starting", f"${b['starting_balance']:.2f}")
-                c2.metric("Record", f"{b['wins']}-{b['losses']}"
+                c2.metric("Deposits", f"${b.get('deposits', 0.0):+.2f}")
+                c3.metric("Record", f"{b['wins']}-{b['losses']}"
                           if b['n_bets'] else "—")
-                c3.metric("Staked", f"${b['total_staked']:.2f}")
-                c4.metric("Net profit", f"${b['net_profit']:+.2f}")
-                c5.metric("Current balance", f"${b['current_balance']:.2f}",
+                c4.metric("Staked", f"${b['total_staked']:.2f}")
+                c5.metric("Net profit", f"${b['net_profit']:+.2f}")
+                c6.metric("Current balance", f"${b['current_balance']:.2f}",
                           delta=f"{b['net_profit']:+.2f}")
 
     st.divider()
     st.subheader("Pending predictions")
     ar1, ar2 = st.columns([1, 3])
     with ar1:
-        if st.button("🔄 Auto-resolve MLB bets", key="auto_resolve_btn"):
-            with st.spinner("Checking mlb_batting/mlb_pitching for real results..."):
-                ar_result = auto_resolve_pending_bets()
-            n_resolved = len(ar_result["resolved"])
-            n_skipped = (len(ar_result["skipped_no_data"])
-                        + len(ar_result["skipped_ambiguous"])
-                        + len(ar_result["skipped_not_mlb"]))
+        if st.button("🔄 Fetch results & auto-resolve", key="auto_resolve_btn"):
+            # v3.7: the old button only READ from mlb_batting/pitching,
+            # so any game played since the last full rebuild was
+            # invisible and its bets silently stayed pending with no
+            # explanation. Now it first fetches fresh game logs for
+            # exactly the players with pending bets (~1 API call each)
+            # and grades game-market bets straight from schedule final
+            # scores — then resolves. No 20-minute rebuild required.
+            from update_mlb_results import update_and_resolve
+            with st.spinner("Fetching fresh results for pending players "
+                            "and grading..."):
+                full = update_and_resolve()
+            ar_result = full["auto_resolve"]
+            game_res = full["game_bets"]["resolved"]
+            n_resolved = len(ar_result["resolved"]) + len(game_res)
             if n_resolved:
-                st.success(f"Auto-resolved {n_resolved} bet(s): " +
-                          ", ".join(f"{r['player']} ({r['actual_value']})"
-                                   for r in ar_result["resolved"]))
+                names = ([f"{r['player']} ({r['actual_value']})"
+                          for r in ar_result["resolved"]] +
+                         [f"{p} ({v})" for _, p, v in game_res])
+                st.success(f"Resolved {n_resolved} bet(s): "
+                           + ", ".join(names))
             else:
-                st.info("Nothing to auto-resolve yet.")
+                st.info("Nothing resolved — see reasons below.")
+            still = (ar_result["skipped_no_data"]
+                     + [{"id": i, "player": "(game bet)", "reason": rsn}
+                        for i, rsn in full["game_bets"]["skipped"]])
+            if still:
+                st.warning("Still pending, and why:\n" + "\n".join(
+                    f"- #{s['id']} {s['player']}: {s['reason']}"
+                    for s in still[:12]))
             if ar_result["skipped_ambiguous"]:
-                st.warning(f"{len(ar_result['skipped_ambiguous'])} bet(s) skipped as "
-                          f"ambiguous (multiple possible games, no game_date stored) "
-                          f"-- resolve these manually below.")
+                st.warning(f"{len(ar_result['skipped_ambiguous'])} bet(s) "
+                          f"ambiguous (multiple candidate games) — "
+                          f"resolve manually below: " + ", ".join(
+                              f"#{s['id']} {s['player']}"
+                              for s in ar_result["skipped_ambiguous"][:8]))
             st.session_state["_last_auto_resolve"] = ar_result
             st.rerun()
     with ar2:
-        st.caption("Looks up real results from mlb_batting/mlb_pitching for "
-                  "every pending MLB bet. Run build_mlb_db.py first if a "
-                  "game you're waiting on isn't showing up.")
+        st.caption("Fetches last-night's results for every player with a "
+                  "pending bet (fast, targeted API calls — no full "
+                  "rebuild), grades game-market bets from official "
+                  "final scores, then resolves everything it can. "
+                  "Today's not-yet-played games correctly stay pending.")
 
     pending = query_df("""
         SELECT id, player_name, stat, side, line, book,
@@ -1466,9 +1624,32 @@ with tab_tracker:
     st.divider()
     st.subheader("Model accuracy")
     completed = query_df("""
-        SELECT result, predicted_prob, stat, player_name
-        FROM prop_results WHERE result IS NOT NULL
+        SELECT result, predicted_prob, stat, player_name, bet_placed
+        FROM prop_results
+        WHERE result IN ('hit', 'miss')
     """)
+    # Calibration countdown: paper + real both count toward the
+    # 150-graded threshold that unlocks trusting the report.
+    CAL_GOAL = 150
+    n_graded = len(completed)
+    n_real = int((completed["bet_placed"] == 1).sum()) if n_graded else 0
+    n_paper = n_graded - n_real
+    st.progress(min(n_graded / CAL_GOAL, 1.0),
+                text=f"Calibration sample: {n_graded}/{CAL_GOAL} graded "
+                     f"({n_real} real · {n_paper} paper)"
+                     + ("  —  ready! Run calibration_report.py"
+                        if n_graded >= CAL_GOAL else ""))
+    acc_scope = st.radio(
+        "Score", ["All", "Real money only", "Paper only"],
+        horizontal=True, key="acc_scope",
+        help="Real and paper are scored together for calibration "
+             "(a prediction is a prediction), but you can split them "
+             "to compare the model's record against your betting "
+             "record.")
+    if acc_scope == "Real money only":
+        completed = completed[completed["bet_placed"] == 1]
+    elif acc_scope == "Paper only":
+        completed = completed[completed["bet_placed"] != 1]
     if completed.empty:
         st.caption("No completed predictions yet. Accuracy stats appear "
                    "here once you log results — this is the feedback "

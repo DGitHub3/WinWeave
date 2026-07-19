@@ -108,6 +108,23 @@ def main():
     elif has_stake and args.paper_only:
         rows = [r for r in rows if not r["bet_placed"]]
 
+    # MIXED-ERA GUARD: X-graded or parlay rows can only come from the
+    # pre-calibration betting era. If they're in the sample and no
+    # era filter was given, this report is scoring ancient history
+    # blended with the current model — loudly say so.
+    if not (args.paper_only or args.real_only or args.since):
+        old_era = [r for r in rows
+                   if (r["grade"] or "").startswith("X")
+                   or r["stat"] == "parlay"]
+        if old_era:
+            print("\n  " + "!" * 62)
+            print("  !!  WARNING: this sample MIXES the pre-calibration")
+            print(f"  !!  betting era ({len(old_era)}+ old rows detected) with")
+            print("  !!  current model predictions. The scores below do NOT")
+            print("  !!  measure the current model. For the real report card:")
+            print("  !!      python calibration_report.py --paper-only --since 2026-07-12")
+            print("  " + "!" * 62)
+
     graded = []
     for r in rows:
         p = float(r["predicted_prob"])

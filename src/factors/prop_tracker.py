@@ -536,6 +536,60 @@ def set_starting_balance(book: str, amount: float):
         conn.close()
 
 
+def ensure_bank_transactions_table():
+    """bankroll_transactions — deposits and withdrawals per book, so
+    current balance = starting + net deposits + net profit − pending
+    stakes. Re-ups and cash-outs finally have a home."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS bankroll_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book TEXT NOT NULL,
+                amount REAL NOT NULL,
+                kind TEXT NOT NULL DEFAULT 'deposit',
+                note TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            )""")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def add_bank_transaction(book: str, amount: float,
+                         kind: str = "deposit", note: str = ""):
+    """kind: 'deposit' | 'withdrawal'. Amount always positive."""
+    from datetime import datetime, timezone
+    ensure_bank_transactions_table()
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            INSERT INTO bankroll_transactions
+                (book, amount, kind, note, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (book, abs(float(amount)), kind, note,
+              datetime.now(timezone.utc).isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_deposits_by_book() -> dict:
+    """{book: net_deposits} — deposits minus withdrawals."""
+    ensure_bank_transactions_table()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        return {r["book"]: r["net"] for r in conn.execute("""
+            SELECT book,
+                   SUM(CASE WHEN kind='withdrawal' THEN -amount
+                            ELSE amount END) AS net
+            FROM bankroll_transactions GROUP BY book
+        """).fetchall()}
+    finally:
+        conn.close()
+
+
 def get_bankroll_by_book() -> list[dict]:
     """
     Per-book bankroll: starting balance, real bets (resolved AND
@@ -568,12 +622,13 @@ def get_bankroll_by_book() -> list[dict]:
     try:
         starting = {r["book"]: r["starting_balance"] for r in conn.execute(
             "SELECT book, starting_balance FROM bankroll_settings").fetchall()}
+        deposits = get_deposits_by_book()
 
         bet_books = {r[0] for r in conn.execute(
             "SELECT DISTINCT book FROM prop_results WHERE bet_placed=1"
         ).fetchall()}
 
-        all_books = sorted(set(starting) | bet_books)
+        all_books = sorted(set(starting) | bet_books | set(deposits))
         results = []
         for book in all_books:
             resolved = conn.execute("""
@@ -615,7 +670,12 @@ def get_bankroll_by_book() -> list[dict]:
                 "pending_bonus_staked": pending_bonus_staked,
                 "pending_bonus_count": pending_bonus["n_bets"] or 0,
                 "net_profit": net,
-                "current_balance": start_bal + net - pending_real_staked,
+                "deposits": deposits.get(book, 0.0),
+                # v3.6: current balance now includes deposits and
+                # withdrawals — starting + net deposits + net profit
+                # − money currently locked in pending real stakes.
+                "current_balance": start_bal + deposits.get(book, 0.0)
+                                   + net - pending_real_staked,
             })
         return results
     finally:

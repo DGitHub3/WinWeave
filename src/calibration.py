@@ -54,11 +54,18 @@ from typing import Optional
 # ── Tunables ────────────────────────────────────────────────────────
 # Sample size at which the model earns EQUAL say with the market.
 # n=30 games -> 50/50 blend; n=10 -> 25% model / 75% market.
-MARKET_ANCHOR_K = 30
+MARKET_ANCHOR_K = 50   # v3.2: was 30 — more games required before the model earns weight
 
 # Model's blend weight can never exceed this, no matter the sample.
 # Even a perfectly-fed model shouldn't fully ignore the market.
-MAX_MODEL_WEIGHT = 0.60
+MAX_MODEL_WEIGHT = 0.40   # v3.2 (2026-07-18): lowered from 0.60.
+# Evidence: 401 clean post-calibration paper picks scored Brier
+# 0.2222 vs market 0.2202 — a statistical tie with the vig-inflated
+# baseline, i.e. no detectable edge. Worse: A/B grades (the biggest
+# claimed edges) lost -13%/-12% ROI while C lost only -4.9% (= pure
+# vig): the model's residual disagreements with the market were
+# anti-predictive inside the caps. The model earns LESS say until a
+# clean 150+ report shows its disagreements adding information.
 
 # Hard cap on |final probability - no-vig probability|.
 # v3.1: the cap is now BOTH absolute and RELATIVE. The 2026-07-11
